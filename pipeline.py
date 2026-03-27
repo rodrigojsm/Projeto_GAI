@@ -179,7 +179,9 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}")
     
-    import Models.VAE_Model as VAE
+    import Models.VAE
+    import Models.DCGAN
+    import Models.Diffusion
 
 
     model = VAE.Module(in_channels=3, latent_dim=128).to(device)
