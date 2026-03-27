@@ -1,0 +1,13 @@
+scikit-learn
+matplotlib
+numpy
+h5py
+scipy
+diffusers
+Pillow
+transformers
+accelerate
+datasets
+torch 
+torchvision 
+torchaudio

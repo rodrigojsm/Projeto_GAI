@@ -1,0 +1,19 @@
+PROJECT_ROOT = /app
+KAGGLE_ROOT  = /app/archive
+Dataset source: kaggle root='/app/archive'
+Train size: 50000
+Columns   : ['image', 'label']
+Num classes: 10
+Class names: ['impressionism', 'realism', 'romanticism', 'expressionism', 'baroque', 'post_impressionism', 'art_nouveau', 'surrealism', 'ukiyo_e', 'renaissance']
+
+Train class distribution:
+   0 |   impressionism |   5000
+   1 |         realism |   5000
+   2 |     romanticism |   5000
+   3 |   expressionism |   5000
+   4 |         baroque |   5000
+   5 | post_impressionism |   5000
+   6 |     art_nouveau |   5000
+   7 |      surrealism |   5000
+   8 |         ukiyo_e |   5000
+   9 |     renaissance |   5000
