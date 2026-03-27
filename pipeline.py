@@ -180,8 +180,8 @@ if __name__ == '__main__':
     print(f"Training on device: {device}")
     
     import Models.VAE
-    import Models.DCGAN
-    import Models.Diffusion
+    #import Models.DCGAN
+    #import Models.Diffusion
 
 
     model = VAE.Module(in_channels=3, latent_dim=128).to(device)
