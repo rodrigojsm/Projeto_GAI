@@ -10,8 +10,11 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 from torchvision.utils import make_grid, save_image
+import pytorch_lightning as pl
 import matplotlib.pyplot as plt
 import csv
+
+from transformers import trainer
 
 # Reproducibility
 SEED = 42
@@ -70,7 +73,7 @@ USE_CSV_SUBSET = True
 
 IMAGE_SIZE = 32
 BATCH_SIZE = 64
-NUM_WORKERS = 2
+NUM_WORKERS = 4
 SEED = 42
 
 # Settings for full/fractional run (Used if USE_CSV_SUBSET = False)
@@ -179,41 +182,53 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Training on device: {device}")
     
-    import Models.VAE
-    #import Models.DCGAN
+    #import Models.VAE as VAE
+    import Models.DCGAN as DCGAN
     #import Models.Diffusion
 
 
-    model = VAE.Module(in_channels=3, latent_dim=128).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    epochs = 10
+    #model = VAE.Module(in_channels=3, latent_dim=128).to(device)
+    #optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    #epochs = 10
+#
+    #print("Starting Training Loop...")
+    #for epoch in range(epochs):
+    #    model.train()
+    #    train_loss = 0
+    #    
+    #    for batch_idx, batch in enumerate(train_loader):
+    #        images, labels, indices = batch 
+    #        images = images.to(device)
+    #        
+    #        # Forward pass
+    #        optimizer.zero_grad()
+    #        reconstructed_images, mu, logvar = model(images)
+    #        
+    #        loss = model.loss_function(reconstructed_images, images, mu, logvar)
+    #        
+    #        # Backward pass
+    #        loss.backward()
+    #        train_loss += loss.item()
+    #        optimizer.step()
+    #        
+    #        # Print progress every 50 batches
+    #        if batch_idx % 50 == 0:
+    #            print(f"Epoch {epoch+1}/{epochs} [{batch_idx * len(images)}/{len(train_ds)}] Loss: {loss.item() / len(images):.4f}")
+#
+    #    # Average loss for the epoch
+    #    avg_loss = train_loss / len(train_ds)
+    #    print(f"====> Epoch: {epoch+1} Average loss: {avg_loss:.4f}")
+    #
+    #print("Training Complete!")
+#
+    model = DCGAN.Module(in_channels=3, latent_dim=128).to(device)
+    model.plot_imgs()
 
-    print("Starting Training Loop...")
-    for epoch in range(epochs):
-        model.train()
-        train_loss = 0
-        
-        for batch_idx, batch in enumerate(train_loader):
-            images, labels, indices = batch 
-            images = images.to(device)
-            
-            # Forward pass
-            optimizer.zero_grad()
-            reconstructed_images, mu, logvar = model(images)
-            
-            loss = model.loss_function(reconstructed_images, images, mu, logvar)
-            
-            # Backward pass
-            loss.backward()
-            train_loss += loss.item()
-            optimizer.step()
-            
-            # Print progress every 50 batches
-            if batch_idx % 50 == 0:
-                print(f"Epoch {epoch+1}/{epochs} [{batch_idx * len(images)}/{len(train_ds)}] Loss: {loss.item() / len(images):.4f}")
+    trainer = pl.Trainer(
+        max_epochs=10,
+        accelerator='gpu' if torch.cuda.is_available() else 'cpu',
+        devices=1,
+        enable_progress_bar=True,
+    )
 
-        # Average loss for the epoch
-        avg_loss = train_loss / len(train_ds)
-        print(f"====> Epoch: {epoch+1} Average loss: {avg_loss:.4f}")
-    
-    print("Training Complete!")
+    trainer.fit(model, train_loader)
