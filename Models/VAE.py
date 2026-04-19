@@ -1,6 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import os
+from torchvision.utils import save_image
 
 class Module(nn.Module):
     def __init__(self, in_channels=3, latent_dim=128):
@@ -50,9 +52,73 @@ class Module(nn.Module):
         reconstructed_x = self.decode(z)
         return reconstructed_x, mu, logvar
 
-    def loss_function(self, reconstructed_x, x, mu, logvar):
-        reconstraction_loss = F.mse_loss(reconstructed_x, x, reduction='sum')
+    def loss_function(self, reconstructed_x, x, mu, logvar, beta = 0.1):
+        reconstruction_loss = F.mse_loss(reconstructed_x, x, reduction='sum')
 
         kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         
-        return reconstraction_loss + kl_divergence
+        return reconstruction_loss + (beta*kl_divergence)
+    
+    def save_comparison_grid(self, real_images, epoch):
+        # Grab up to 10 images from the batch
+        n = min(real_images.size(0), 10)
+        real_subset = real_images[:n]
+
+        # Generate the reconstructed (fake) images
+        self.eval() # Switch to eval mode so things like Dropout don't interfere
+        with torch.no_grad():
+            reconstructed, _, _ = self(real_subset)
+        self.train() # Switch back to training mode immediately after
+
+        # combine the 10 real and 10 fake images into a list of 20 images.
+        comparison = torch.cat([real_subset, reconstructed])
+
+        # 4. Ensure the results folder exists (doesn't crash if it already does)
+        os.makedirs("results", exist_ok=True)
+
+        # setting nrow=n puts n images per row. 
+        filepath = f"results/training_results_{epoch}.png"
+        save_image(comparison.cpu(), filepath, nrow=n)
+
+    def startTraining(self, train_loader, ds_length, learning_rate = 3e-3, beta = 0.05, device = torch.device("cuda" if torch.cuda.is_available() else "cpu"),epochs = 10):
+        epochs_to_warmup = 5
+        target_beta = beta
+        
+        self.to(device)
+        optimizer = torch.optim.Adam(self.parameters(), lr=learning_rate)
+        avg_loss = None
+        print("Starting Training Loop...")
+        for epoch in range(epochs):
+            self.train()
+            train_loss = 0
+            beta = min(target_beta, target_beta * (epoch / epochs_to_warmup))
+            for batch_idx, batch in enumerate(train_loader):
+                images, labels, indices = batch 
+                images = images.to(device)
+                
+                # Forward pass
+                optimizer.zero_grad()
+                reconstructed_images, mu, logvar = self(images)
+                
+                loss = self.loss_function(reconstructed_images, images, mu, logvar, beta = beta)
+                
+                # Backward pass
+                loss.backward()
+                train_loss += loss.item()
+                optimizer.step()
+                
+                # Print progress every 50 batches
+                if batch_idx % 50 == 0 and ds_length != 0:
+                    print(f"Epoch {epoch+1}/{epochs} [{batch_idx * len(images)}/{ds_length}] Loss: {loss.item() / len(images):.4f}")
+
+            # Average loss for the epoch
+            if (ds_length):
+                avg_loss = train_loss / ds_length
+            print(f"====> Epoch: {epoch+1} Average loss: {avg_loss:.4f}")
+
+            if (epoch + 1) % 3 == 0:
+                self.save_comparison_grid(images, epoch + 1)
+        
+        print("Training Complete!")
+        return avg_loss
+    
