@@ -1,6 +1,8 @@
-/images
-/archive
-/lightning_logs
+student_start_pack/
+results/
+lightning_logs/
 .venv/
 __pycache__/
 *.pyc
+notes/
+*.pth
