@@ -42,8 +42,8 @@ class Module(nn.Module):
         x = x.view(x.size(0), 128, 4, 4) # Unflatten
         x = F.relu(self.dec_conv1(x))
         x = F.relu(self.dec_conv2(x))
-        # Use Sigmoid on the final layer because our transforms output [0, 1]
-        x = torch.sigmoid(self.dec_conv3(x)) 
+        # Use Tanh because our transforms now output [-1, 1]
+        x = torch.tanh(self.dec_conv3(x)) 
         return x
 
     def forward(self, x):
@@ -73,6 +73,9 @@ class Module(nn.Module):
         # combine the 10 real and 10 fake images into a list of 20 images.
         comparison = torch.cat([real_subset, reconstructed])
 
+        comparison = (comparison + 1.0) / 2.0
+        comparison = comparison.clamp(0, 1) # Prevents weird artifacting from float rounding
+        
         # 4. Ensure the results folder exists (doesn't crash if it already does)
         os.makedirs("results", exist_ok=True)
 
