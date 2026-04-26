@@ -70,7 +70,7 @@ if __name__ == '__main__':
 USE_CSV_SUBSET = False 
 
 IMAGE_SIZE = 32
-BATCH_SIZE = 256
+BATCH_SIZE = 128
 NUM_WORKERS = 4
 SEED = 42
 
@@ -158,9 +158,9 @@ if __name__ == '__main__':
         train_indices = make_subset_indices(len(train_hf), TRAIN_FRACTION, seed=SEED)
 
 
-# ==========================================
-# 4. DATASET & DATALOADER INITIALIZATION
-# ==========================================
+    # ==========================================
+    # 4. DATASET & DATALOADER INITIALIZATION
+    # ==========================================
     train_ds = HFDatasetTorch(train_hf, transform=transform, indices=train_indices)
 
     train_loader = DataLoader(
@@ -184,43 +184,9 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
 
-    def generate_new_images(model, num_images=10, latent_dim=128, device=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
-        #  ALWAYS put the model in evaluation mode before generating
-        model.eval()
-        
-        
-        # Tell PyTorch we don't need to track gradients (saves memory & runs faster)
-        with torch.no_grad():
-            # Create the random noise! 
-            z = torch.randn(num_images, latent_dim).to(device)
-            
-            # Pass the noise through the decode method
-            fake_images = model.decode(z)
-            
-            # Move images back to CPU for plotting
-            fake_images = fake_images.cpu()
-
-        # Plot the results
-        fig = plt.figure(figsize=(15, 5))
-        for i in range(num_images):
-            plt.subplot(2, 5, i + 1)
-
-            img_tensor = fake_images[i]
-            
-            # Rearrange dimensions for Matplotlib (Shape [H, W, 3])
-            img_np = img_tensor.permute(1, 2, 0).numpy()
-            img_np = (img_np + 1.0) / 2.0
-
-            plt.imshow(img_np.clip(0, 1), interpolation='none') 
-            plt.axis('off')
-            
-        plt.tight_layout()
-        plt.show() 
-
-
     # Setup device, model, and optimizer
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Training on device: {device}")
+    t(f"Training on device: {device}")
 
     import sys
     
@@ -231,8 +197,8 @@ if __name__ == '__main__':
     model = None
     if len(sys.argv) > 1:
         if sys.argv[1].lower() == "vae":
-            lr = 3e-3
-            beta = 0.05
+            lr = 1e-3
+            beta = 0.35
             model = VAE.Module(in_channels=3, latent_dim=128)
             model.startTraining( 
                 train_loader=train_loader, 
@@ -240,9 +206,9 @@ if __name__ == '__main__':
                 learning_rate=lr, 
                 device=device, 
                 beta = beta,
-                epochs=10
+                epochs=50
             )
-            generate_new_images(model, device=device)
+            model.generate_new_images(device=device)
         elif sys.argv[1].lower() == "dcgan" or sys.argv[1].lower() == 'gan':
             lr = 2e-04
             model = DCGAN.Module(in_channels=3, latent_dim=128)
@@ -251,8 +217,9 @@ if __name__ == '__main__':
                 ds_length=ds_length, 
                 learning_rate=lr, 
                 device=device, 
-                epochs=30
+                epochs=50
             )
+            model.generate_new_images(device=device)
             
         elif sys.argv[1].lower() == "diffusion" or sys.argv[1].lower() == "diff":
             model =  Diffusion.Module(in_channels=3, device=device)
@@ -260,16 +227,17 @@ if __name__ == '__main__':
             model.startTraining( 
                 train_loader=train_loader, 
                 lr=lr, 
-                epochs=30,
+                epochs=50,
                 ds_length = ds_length
             )
+            model.generate_new_images()
         else:
             print("Run as \"train_pipeline.py <DCGAN|Diffusion|VAE>\" or  \"train_pipeline.py <DCGAN|Diffusion|VAE> <filename>\" ")
     else:
         raise ValueError("Run as \"train_pipeline.py <DCGAN|Diffusion|VAE>\" or  \"train_pipeline.py <DCGAN|Diffusion|VAE> <filename>\" ")
     
     if (len(sys.argv) > 2):
-        saved_weights = torch.load(sys.argv[2], map_location=torch.device('cpu'))
+        saved_weights = torch.load(sys.argv[2], map_location=torch.device('cpu'), weights_only=True)
         model.load_state_dict(saved_weights)
     
     end = time.time() - start
@@ -278,7 +246,7 @@ if __name__ == '__main__':
     # Save the model to a file (the .pth extension is standard for PyTorch)
     path = f'{sys.argv[1]}.pth'
     torch.save(model.state_dict(), path)
-    print(f"Model saved as {Path}")
+    print(f"Model saved as {path}")
 
     # learning_rates = [2e-04]
     # betas = [0.3]

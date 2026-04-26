@@ -11,3 +11,5 @@ datasets
 torch 
 torchvision 
 torchaudio
+torchmetrics
+torch-fidelity

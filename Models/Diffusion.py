@@ -104,19 +104,20 @@ class Module(nn.Module):
         # 6. Save the grid
         filepath = f"results/diffusion_training_results_{epoch}.png"
         
-        # Explicitly tell PyTorch the data range so wild fake images don't hijack the color scale
+        # Dataset and models are in range [-1, 1]. save_image needs [0, 1]
         save_image(comparison.cpu(), filepath, nrow=n, normalize=True, value_range=(-1, 1))
 
-    def generate_new_images(self, num_images=10):
+    def generate_new_images(self, num_images=10, device=None, return_images=False, **kwargs):
         """
         Generates and plots n images using your dynamic min-max auto-contrast fix.
         """
-        # We don't need the GAN batchnorm hack here because Diffusion generation 
-        # doesn't rely on batch statistics in the same adversarial way. 
-        # self.sample() handles the eval() switching for us.
+        # self.sample() handles the eval() switching 
         
         print(f"Generating {num_images} images... (This might take a minute)")
         fake_images = self.sample(n=num_images).cpu()
+
+        if return_images:
+            return fake_images
 
         fig = plt.figure(figsize=(15, 5))
         for i in range(num_images):
@@ -124,12 +125,9 @@ class Module(nn.Module):
             img_tensor = fake_images[i]
             img_np = img_tensor.permute(1, 2, 0).numpy()
             
-            # ==========================================
-            # THE FIX: Dynamic Min-Max Auto-Contrast (From your code)
-            # ==========================================
-            img_min = img_np.min()
-            img_max = img_np.max()
-            img_np = (img_np - img_min) / (img_max - img_min + 1e-8)
+            # Dataset and models are now in range [-1, 1].
+            # Map the values to [0, 1] for matplotlib.
+            img_np = (img_np + 1) / 2.0
 
             plt.imshow(img_np.clip(0, 1), interpolation='none') 
             plt.axis('off')
@@ -170,9 +168,9 @@ class Module(nn.Module):
                 
                 epoch_loss += loss.item()
                 if batch_idx % 50 == 0:
-                    print(f"Epoch {epoch+1}/{epochs} [{batch_idx * len(real_images)}/{ds_length}] Loss: {loss.item() / len(real_images):.4f}")
+                    print(f"Epoch {epoch+1}/{epochs} [{batch_idx * len(real_images)}/{ds_length}] Loss: {loss.item() *10000 / len(real_images):.4f}")
 
-            avg_loss = epoch_loss / ds_length
+            avg_loss = epoch_loss*10000 / ds_length
             print(f"Epoch [{epoch+1}/{epochs}] | Average Loss: {avg_loss:.4f}")
 
             # Every 3 epochs, save the comparison grid

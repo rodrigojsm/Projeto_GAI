@@ -3,6 +3,7 @@ import torch.nn.functional as F
 import torch
 import os
 from torchvision.utils import save_image
+import matplotlib.pyplot as plt
 
 class Module(nn.Module):
     def __init__(self, in_channels=3, latent_dim=128):
@@ -53,7 +54,7 @@ class Module(nn.Module):
         return reconstructed_x, mu, logvar
 
     def loss_function(self, reconstructed_x, x, mu, logvar, beta = 0.1):
-        reconstruction_loss = F.mse_loss(reconstructed_x, x, reduction='sum')
+        reconstruction_loss = (F.mse_loss(reconstructed_x, x, reduction='sum'))/4
 
         kl_divergence = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
         
@@ -124,4 +125,41 @@ class Module(nn.Module):
         
         print("Training Complete!")
         return avg_loss
+
+    def generate_new_images(self, num_images=10, latent_dim=128, device=None, return_images=False, **kwargs):
+        if device is None: device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        #  ALWAYS put the self in evaluation mode before generating
+        self.eval()
+        
+        
+        # Tell PyTorch we don't need to track gradients (saves memory & runs faster)
+        with torch.no_grad():
+            # Create the random noise! 
+            z = torch.randn(num_images, latent_dim).to(device)
+            
+            # Pass the noise through the decode method
+            fake_images = self.decode(z)
+            
+            # Move images back to CPU for plotting
+            fake_images = fake_images.cpu()
+
+        if return_images:
+            return fake_images
+
+        # Plot the results
+        fig = plt.figure(figsize=(15, 5))
+        for i in range(num_images):
+            plt.subplot(2, 5, i + 1)
+
+            img_tensor = fake_images[i]
+            
+            # Rearrange dimensions for Matplotlib (Shape [H, W, 3])
+            img_np = img_tensor.permute(1, 2, 0).numpy()
+            img_np = (img_np + 1.0) / 2.0
+
+            plt.imshow(img_np.clip(0, 1), interpolation='none') 
+            plt.axis('off')
+            
+        plt.tight_layout()
+        plt.show() 
     

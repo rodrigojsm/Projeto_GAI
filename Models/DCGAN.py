@@ -147,10 +147,9 @@ class Module(nn.Module):
         # 6. Save the grid
         filepath = f"results/dcgan_training_results_{epoch}.png"
         
-        # CRITICAL GAN UPDATE: normalize=True 
-        # DCGANs output [-1, 1] because of Tanh. save_image needs [0, 1].
-        # normalize=True automatically fixes the math for you.
-        save_image(comparison.cpu(), filepath, nrow=n, normalize=True)
+        # Dataset and models are now in range [-1, 1]. save_image needs [0, 1].
+        # normalize=True with value_range=(-1, 1) maps the images correctly.
+        save_image(comparison.cpu(), filepath, nrow=n, normalize=True, value_range=(-1, 1))
 
 
     def startTraining(self, train_loader, ds_length, learning_rate=2e-4, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"), epochs=10):
@@ -227,7 +226,8 @@ class Module(nn.Module):
         return loss_G.item()
 
 
-    def generate_new_images(self, num_images=10, latent_dim=128, device='cpu'):
+    def generate_new_images(self, num_images=10, latent_dim=128, device=None, return_images=False, **kwargs):
+        if device is None: device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # GAN HACK to avoid overly gray pictures: Keep it in train mode so BatchNorm calculates fresh, high-contrast colors!
         self.eval()
         
@@ -235,22 +235,18 @@ class Module(nn.Module):
             z = torch.randn(num_images, latent_dim).to(device)
             fake_images = self(z).cpu()
 
+        if return_images:
+            return fake_images
+
         fig = plt.figure(figsize=(15, 5))
         for i in range(num_images):
             plt.subplot(2, 5, i + 1)
             img_tensor = fake_images[i]
             img_np = img_tensor.permute(1, 2, 0).numpy()
             
-            # ==========================================
-            # THE FIX: Dynamic Min-Max Auto-Contrast
-            # ==========================================
-            # Find the absolute darkest and brightest pixels in this specific image
-            img_min = img_np.min()
-            img_max = img_np.max()
-            
-            # Stretch the colors so the darkest is exactly 0.0 and brightest is exactly 1.0
-            # (The + 1e-8 is just a safety net to prevent dividing by zero)
-            img_np = (img_np - img_min) / (img_max - img_min + 1e-8)
+            # Dataset and models are now in range [-1, 1].
+            # Map the values to [0, 1] for matplotlib.
+            img_np = (img_np + 1) / 2.0
 
             plt.imshow(img_np.clip(0, 1), interpolation='none') 
             plt.axis('off')
